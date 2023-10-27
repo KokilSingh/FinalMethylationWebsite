@@ -72,20 +72,58 @@ st.set_page_config(
 ##### Modify config.toml
 # Done
 
+##### Load template files
+sample_tem_df=pd.read_csv("SampleDataTemplate.csv")
+avg_tem_df=pd.read_csv("AverageDataTemplate.csv")
+
+
 ##### Set Title************************************************
 st.title("Welcome!")
+""
 
 ##### Make upload button for Methylation data File********************
+st.subheader("Methylation Data File")
+
+colA, colB =st.columns(2)
+with colA:
+    st.write("You may make use of the following template.")
+with colB:
+    sample_template_btn = download_button(sample_tem_df,'SamplesDataTemplate.csv',"Samples Data Template")
+    st.markdown(sample_template_btn, unsafe_allow_html=True)
+
+st.caption("The first column should contain the Target ID (cgIDs, etc) followed by the data for each sample.")
+
+data_files= st.file_uploader("Upload your File here !", type=["csv","excel","xlsx"],key=0)
+""
+# Done with taking in data file
 
 
 ##### Make Template for Average Beta Values
+st.subheader("Average Data File")
 # Make Download Button for Avg Beta Values Template ********************
+colA, colB =st.columns(2)
+with colA:
+    st.write("You may make use of the following template.")
+with colB:
+    sample_template_btn = download_button(avg_tem_df,'AverageDataTemplate.csv',"Average Data Template")
+    st.markdown(sample_template_btn, unsafe_allow_html=True)
+
+st.caption("The first column should contain the Target ID (cgIDs, etc) followed by the Average for each ID.")
+
 # Make Upload Button For Avg Values that follow template *****************
+avg_files= st.file_uploader("Upload your File here !", type=["csv","excel","xlsx"], key=1)
+""
+#Done with taking in average file
 
 
 ##### Make sure 450K array Manifest file is included in folder
 # Done
 
 ##### Submit button *******************
+submit =st.button("Start Analysis!")
+#Done with submit button
+""
+loader=st.empty()
+
 
 #/******************* First Part Done ***********************/
