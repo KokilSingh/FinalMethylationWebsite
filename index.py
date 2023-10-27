@@ -124,6 +124,28 @@ submit =st.button("Start Analysis!")
 #Done with submit button
 ""
 loader=st.empty()
-
+status=st.empty()
 
 #/******************* First Part Done ***********************/
+
+# If Submit Button clicked
+# Runn Loader for activity
+# Load files based on format
+# Remove Loader for user files
+# Display status: Sample/Average Data File Fetched
+# Run Loader for Manifest File Fetching
+# Get Manifest file
+# Remove Loader for manifest file
+# Display status: Manifest Data File Fetched
+# Run loader for Mapping: Avg-> Manifest 
+# Map Averages to Manifest File
+# Remove Loader for manifest file
+# Display status: Manifest Data File Fetched
+# Download for testing (optional)
+# Run loader for Mapping: Sample-> Manifest+Avg
+# Map Sample to Manifest+Avg File
+# Remove Loader for Mapping
+# Display status: Base File created
+# Download File
+
+#/*********************Second Part Done**********************************************/
