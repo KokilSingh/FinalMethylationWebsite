@@ -62,6 +62,62 @@ def download_button(object_to_download, download_filename, button_text):
 #Done with download button function
 
 
+import io
+import zipfile
+
+##### Make function for save download of zip files without reloading (a streamlit bug)
+def download_button_zip(data_frame, download_filename, button_text):
+    # Create a BytesIO buffer to hold the zipped data
+    zip_buffer = io.BytesIO()
+    
+    # Write the data frame to a CSV file within the zip buffer
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED, False) as zipf:
+        # You can change the file name within the zip here if needed
+        zipf.writestr(download_filename, data_frame.to_csv(index=False))
+    
+    # Seek to the beginning of the zip buffer
+    zip_buffer.seek(0)
+    
+    # Encode the zipped data to base64
+    zip_data = base64.b64encode(zip_buffer.read()).decode()
+    
+    # Create the download link
+    button_uuid = str(uuid.uuid4()).replace('-', '')
+    button_id = re.sub('\d+', '', button_uuid)
+
+    custom_css = f""" 
+        <style>
+            #{button_id} {{
+                background-color: rgb(19,23, 32);
+                color: inherit;
+                padding: 0.5rem 0.75rem;
+                position: relative;
+                text-decoration: none;
+                border-radius: 0.25rem;
+                border-width: 1px;
+                border-style: solid;
+                border-color: rgb(250, 250, 250,0.2);
+                border-image: initial;
+            }} 
+            #{button_id}:hover {{
+                border-color: rgb(246, 51, 102);
+                color: rgb(246, 51, 102);
+            }}
+            #{button_id}:active {{
+                box-shadow: none;
+                background-color: rgb(246, 51, 102);
+                color: white;
+                }}
+        </style> """
+
+    dl_link = custom_css+f'''
+        <a download="{download_filename}.zip" id="{button_id}" href="data:application/zip;base64,{zip_data}">{button_text}</a><br></br>
+    '''
+    
+    return dl_link
+#Done with download button for zip file
+
+
 # Set name for Webpage*******************************
 st.set_page_config(
     page_title="Methylation Source File Generator"
@@ -128,24 +184,91 @@ status=st.empty()
 
 #/******************* First Part Done ***********************/
 
+
 # If Submit Button clicked
-# Runn Loader for activity
-# Load files based on format
-# Remove Loader for user files
-# Display status: Sample/Average Data File Fetched
-# Run Loader for Manifest File Fetching
-# Get Manifest file
-# Remove Loader for manifest file
-# Display status: Manifest Data File Fetched
-# Run loader for Mapping: Avg-> Manifest 
-# Map Averages to Manifest File
-# Remove Loader for manifest file
-# Display status: Manifest Data File Fetched
-# Download for testing (optional)
-# Run loader for Mapping: Sample-> Manifest+Avg
-# Map Sample to Manifest+Avg File
-# Remove Loader for Mapping
-# Display status: Base File created
-# Download File
+if submit and data_files is not None and avg_files is not None:
+
+    status.empty()
+    sample_df=pd.DataFrame()
+    avg_df=pd.DataFrame()
+    mani_df=pd.DataFrame()
+
+
+
+    # Run Loader for activity
+    with st.spinner('Reading Methylation Sample Data File'):
+
+        # Load Sample File based on format
+        if data_files.type=='text/csv':
+            sample_df=pd.read_csv(data_files,low_memory=False)
+        else:
+            sample_df=pd.read_excel(data_files)
+        
+        sample_df=sample_df.fillna("")
+
+    # Display status: Sample Data File Fetched
+    status.info("Methylation Sample Data File Read Successfully")
+    
+
+
+    # Run Loader for activity
+    with st.spinner('Reading Average Data File'):
+
+        # Load Sample File based on format
+        if avg_files.type=='text/csv':
+            avg_df=pd.read_csv(avg_files,low_memory=False)
+        else:
+            avg_df=pd.read_excel(avg_files)
+
+        avg_df=avg_df.fillna("")
+
+    # Display status: Sample Data File Fetched
+    status.info("Average Data File Read Successfully")
+    
+    
+
+    # Run Loader for Manifest File Fetching
+    with st.spinner('Fetching Manifest File'):
+
+        # Get Manifest file
+        mani_df=pd.read_csv("450K Methylation Manifest file.csv",low_memory=False)
+        mani_df=mani_df.fillna("")
+        mani_df['UCSC_REFGENE_NAME'] = mani_df['UCSC_REFGENE_NAME'].astype("string")
+
+    # Display status: Manifest Data File Fetched
+    status.info("Manifest File Fetched Successfully")
+
+    
+
+    # Run loader for Mapping: Avg-> Manifest 
+    with st.spinner('Mapping Average File to Manifest File'):
+        # Map Averages to Manifest File
+        mani_avg_df=pd.merge(mani_df,avg_df,how='right',on = 'TargetID')
+        # Download for testing (optional)
+        mani_avg_btn = download_button(mani_avg_df,'ManifestAndAverage.csv',"Download Manifest And Average Data")
+        st.markdown(mani_avg_btn, unsafe_allow_html=True)
+    
+    # Display status: Manifest Data File Fetched
+    status.info("Manifest and Averages Data Merged Successfully")
+
+
+
+    # Run loader for Mapping: Sample-> Manifest+Avg
+    # Map Averages to Manifest+Avg File
+    with st.spinner('Mapping Samples Data File to Manifest and Average File'):
+        mani_sample_df=pd.merge(mani_avg_df,sample_df,how='inner',on='TargetID')
+    
+        # Download for testing (optional)
+        mani_avg_sample_btn = download_button_zip(mani_sample_df,'AllSampleDataAverage.csv',"Download Combined Data File (ZIP)")
+  
+        st.markdown(mani_avg_sample_btn, unsafe_allow_html=True)
+        
+    # Display status: Base File created
+    status.success("All Relevant Files Merged Successfully")
+
+
+if submit and (data_files is None or avg_files is None):
+    status.error("Either one or both of Data File and Average File is not uploaded.")
+
 
 #/*********************Second Part Done**********************************************/
