@@ -125,8 +125,7 @@ st.set_page_config(
 # Done
 
 ##### Load template files
-sample_tem_df=pd.read_csv("SampleDataTemplate.csv")
-avg_tem_df=pd.read_csv("AverageDataTemplate.csv")
+sample_tem_df=pd.read_csv("DataFileTemplate.csv")
 
 
 ##### Set Title************************************************
@@ -140,32 +139,19 @@ colA, colB =st.columns(2)
 with colA:
     st.write("You may make use of the following template.")
 with colB:
-    sample_template_btn = download_button(sample_tem_df,'SamplesDataTemplate.csv',"Samples Data Template")
+    sample_template_btn = download_button(sample_tem_df,'DataFileTemplate.csv',"Data File Template")
     st.markdown(sample_template_btn, unsafe_allow_html=True)
 
-st.caption("The first column should contain the Target ID (cgIDs, etc) followed by the data for each sample.")
+st.caption("The first column should contain the Target ID (cgIDs, etc) followed by their corresponding averages and then the methylation data for each sample.")
+#st.caption("Your file should follow the format as provided in the template, which is: ")
+#st.caption("Column A: Target ID")
+#st.caption("Column B: Average")
+#st.caption("Column C, D, E, etc: Sample Methylation Values")
 
 data_files= st.file_uploader("Upload your File here !", type=["csv","excel","xlsx"],key=0)
 ""
 # Done with taking in data file
 
-
-##### Make Template for Average Beta Values
-st.subheader("Average Data File")
-# Make Download Button for Avg Beta Values Template ********************
-colA, colB =st.columns(2)
-with colA:
-    st.write("You may make use of the following template.")
-with colB:
-    sample_template_btn = download_button(avg_tem_df,'AverageDataTemplate.csv',"Average Data Template")
-    st.markdown(sample_template_btn, unsafe_allow_html=True)
-
-st.caption("The first column should contain the Target ID (cgIDs, etc) followed by the Average for each ID.")
-
-# Make Upload Button For Avg Values that follow template *****************
-avg_files= st.file_uploader("Upload your File here !", type=["csv","excel","xlsx"], key=1)
-""
-#Done with taking in average file
 
 
 ##### Make sure 450K array Manifest file is included in folder
@@ -182,11 +168,10 @@ status=st.empty()
 
 
 # If Submit Button clicked
-if submit and data_files is not None and avg_files is not None:
+if submit and data_files is not None:
 
     status.empty()
-    sample_df=pd.DataFrame()
-    avg_df=pd.DataFrame()
+    data_df=pd.DataFrame()
     mani_df=pd.DataFrame()
 
 
@@ -196,30 +181,14 @@ if submit and data_files is not None and avg_files is not None:
 
         # Load Sample File based on format
         if data_files.type=='text/csv':
-            sample_df=pd.read_csv(data_files,low_memory=False)
+            data_df=pd.read_csv(data_files,low_memory=False)
         else:
-            sample_df=pd.read_excel(data_files)
+            data_df=pd.read_excel(data_files)
         
-        sample_df=sample_df.fillna("")
+        data_df=data_df.fillna("")
 
     # Display status: Sample Data File Fetched
     status.info("Methylation Sample Data File Read Successfully")
-    
-
-
-    # Run Loader for activity
-    with st.spinner('Reading Average Data File'):
-
-        # Load Sample File based on format
-        if avg_files.type=='text/csv':
-            avg_df=pd.read_csv(avg_files,low_memory=False)
-        else:
-            avg_df=pd.read_excel(avg_files)
-
-        avg_df=avg_df.fillna("")
-
-    # Display status: Sample Data File Fetched
-    status.info("Average Data File Read Successfully")
     
     
 
@@ -237,33 +206,28 @@ if submit and data_files is not None and avg_files is not None:
     
 
     # Run loader for Mapping: Avg-> Manifest 
-    with st.spinner('Mapping Average File to Manifest File'):
+    with st.spinner('Mapping Data File to Manifest File'):
         # Map Averages to Manifest File
-        mani_avg_df=pd.merge(mani_df,avg_df,how='right',on = 'TargetID')
+        mani_data_df=pd.merge(mani_df,data_df,how='inner',on = 'TargetID')
         # Download for testing (optional)
-        mani_avg_btn = download_button(mani_avg_df,'ManifestAndAverage.csv',"Download Manifest And Average Data")
-        st.markdown(mani_avg_btn, unsafe_allow_html=True)
+        mani_data_btn = download_button_zip(mani_data_df,'ManifestWithInput.csv',"Download Combined Data File (ZIP)")
+        st.markdown(mani_data_btn, unsafe_allow_html=True)
     
     # Display status: Manifest Data File Fetched
-    status.info("Manifest and Averages Data Merged Successfully")
+    status.info("Manifest and Data Merged Successfully")
 
 
-
-    # Run loader for Mapping: Sample-> Manifest+Avg
-    # Map Averages to Manifest+Avg File
-    with st.spinner('Mapping Samples Data File to Manifest and Average File'):
-        mani_sample_df=pd.merge(mani_avg_df,sample_df,how='inner',on='TargetID')
+    #Run loader for Sorting
+    with st.spinner('Arranging Your Data'):
+        mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'])
     
-        # Download for testing (optional)
-        mani_avg_sample_btn = download_button_zip(mani_sample_df,'AllSampleDataAverage.csv',"Download Combined Data File (ZIP)")
-  
-        st.markdown(mani_avg_sample_btn, unsafe_allow_html=True)
+    
         
     # Display status: Base File created
-    status.success("All Relevant Files Merged Successfully")
+    status.success("Files Merged Successfully")
 
 
-if submit and (data_files is None or avg_files is None):
+if submit and (data_files is None):
     status.error("Either one or both of Data File and Average File is not uploaded.")
 
 
