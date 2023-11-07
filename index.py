@@ -209,19 +209,13 @@ if submit and data_files is not None:
     with st.spinner('Mapping Data File to Manifest File'):
         # Map Averages to Manifest File
         mani_data_df=pd.merge(mani_df,data_df,how='inner',on = 'TargetID')
+        #Sort
+        mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'])
         # Download for testing (optional)
         mani_data_btn = download_button_zip(mani_data_df,'ManifestWithInput.csv',"Download Combined Data File (ZIP)")
         st.markdown(mani_data_btn, unsafe_allow_html=True)
     
-    # Display status: Manifest Data File Fetched
-    status.info("Manifest and Data Merged Successfully")
 
-
-    #Run loader for Sorting
-    with st.spinner('Arranging Your Data'):
-        mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'])
-    
-    
         
     # Display status: Base File created
     status.success("Files Merged Successfully")
