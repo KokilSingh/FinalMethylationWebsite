@@ -133,7 +133,7 @@ st.title("Welcome!")
 ""
 
 ##### Make upload button for Methylation data File********************
-st.subheader("Methylation Data File")
+st.subheader("Methylation Data File ")
 
 colA, colB =st.columns(2)
 with colA:
