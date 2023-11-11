@@ -218,11 +218,56 @@ if submit and data_files is not None:
 
         
     # Display status: Base File created
-    status.success("Files Merged Successfully")
+    status.info("Files Merged Successfully")
+
+    #/*********************Second Part Done**********************************************/
+
+    #######The third part includes Step 2: Delta Beta Generation
+
+
+    # Initializing global variables 
+    sample_list=None        # Stores the list of samples
+    avg_idx=1               # Stores the loci of the Average column
+
+
+
+    # Run loader for fetching Average and Sample columns
+    with st.spinner('Identifying Columns...'):
+        #Get average_column index position
+        avg_idx=mani_data_df.columns.get_loc('STRAND') + 1 #We find strands loci because if there is any diff in the spelling of Average it will cause an issue
+        #Get Sample Names
+        sample_list=mani_data_df.columns[avg_idx+1:]
+    
+    #Display status: Done Identifying which columns are what
+    status.info('Done Identifying Columns')
+
+
+
+    #### Calculating Delta Beta Values
+
+    # Run loader for creating and calculating Delta Beta Values
+    with st.spinner('Calculating Delta Beta Values'):
+
+        for col_name in sample_list:
+            
+            #Get index number of sample column
+            index_no = mani_data_df.columns.get_loc(col_name)
+            #Insert Delta Beta Column Right Next to Sample 
+            mani_data_df.insert(index_no+1,'Delta_Beta_'+col_name,'')
+            #Calculate Delta Beta
+            mani_data_df.loc[:,'Delta_Beta_'+col_name] =mani_data_df.loc[:,col_name]-mani_data_df.loc[:,'Average']
+
+        # Download button for delta_beta file
+        mani_data_df=mani_data_df.fillna("")
+        delta_beta_btn = download_button_zip(mani_data_df,'DeltaBeta.csv',"Download Input Data With Delta Beta File (ZIP)")
+        st.markdown(delta_beta_btn, unsafe_allow_html=True)
+    
+    status.success('Delta Beta Values Generated')
+
+    #/*********************Third Part Done**********************************************/
 
 
 if submit and (data_files is None):
     status.error("Either one or both of Data File and Average File is not uploaded.")
 
 
-#/*********************Second Part Done**********************************************/
