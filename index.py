@@ -114,6 +114,14 @@ def download_button_zip(data_frame, download_filename, button_text):
 #Done with download button for zip file
 
 
+# Custom Sort for CHR
+def chr_sort_key(value):
+    try:
+        return (float(value), '')
+    except ValueError:
+        return (float('inf'), str(value))
+
+
 # Set name for Webpage*******************************
 st.set_page_config(
     page_title="Methylation Source File Generator"
@@ -185,10 +193,16 @@ if submit and data_files is not None:
         else:
             data_df=pd.read_excel(data_files)
         
+        # Warning label for Missing Avg Values
+        #st.write(f"{data_df.loc[:,data_df.columns[1]].isna() }")
+        if data_df.loc[:,data_df.columns[1]].isna().values.sum()>0 :
+            st.warning("Alert:- Missing Average Values Found !")
+
         data_df=data_df.fillna("")
 
     # Display status: Sample Data File Fetched
     status.info("Methylation Sample Data File Read Successfully")
+    
     
     
 
@@ -207,13 +221,27 @@ if submit and data_files is not None:
 
     # Run loader for Mapping: Avg-> Manifest 
     with st.spinner('Mapping Data File to Manifest File'):
+
         # Map Averages to Manifest File
+        data_df['TargetID'] = data_df['TargetID'].astype("string")
+        for i in range(1,data_df.shape[1]):
+            data_df[data_df.columns[i]] = data_df[data_df.columns[i]].apply(pd.to_numeric, downcast='float', errors='coerce')
         mani_data_df=pd.merge(mani_df,data_df,how='inner',on = 'TargetID')
-        #Sort
-        mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'])
+
+        # Check if certain cgIDs are not recognized by the Manifest File
+        if len(data_df['TargetID']) != len(mani_data_df['TargetID']) :
+            st.warning('Alert:- TargetIDs in Data File not found in Manifest File !')
+            
+            ### Thinks that we need to work on : Handling !series_matrix_end
+
+        #Sort and ntype assignment of CHR and MAPINFO
+        mani_data_df=mani_data_df.sort_values(by=['CHR', 'MAPINFO'], key=lambda x: x.map(chr_sort_key))
+        
         # Download for testing (optional)
         mani_data_btn = download_button_zip(mani_data_df,'ManifestWithInput.csv',"Download Combined Data File (ZIP)")
         st.markdown(mani_data_btn, unsafe_allow_html=True)
+
+        
     
 
         
@@ -242,7 +270,7 @@ if submit and data_files is not None:
     status.info('Done Identifying Columns')
 
 
-
+    
     #### Calculating Delta Beta Values
 
     # Run loader for creating and calculating Delta Beta Values
@@ -266,9 +294,8 @@ if submit and data_files is not None:
 
     #/*********************Third Part Done**********************************************/
     # Commit to update Streamlit App
+    
 
 
 if submit and (data_files is None):
     status.error("Either one or both of Data File and Average File is not uploaded.")
-
-
