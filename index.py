@@ -7,6 +7,8 @@ import uuid
 import numpy as np
 import pandas as pd
 import streamlit as st
+from scipy import stats
+from stqdm import stqdm
 #Done importing relevant libraries
 
 
@@ -56,6 +58,7 @@ def download_button(object_to_download, download_filename, button_text):
 
     return dl_link
 #Done with download button function
+
 
 
 import io
@@ -114,6 +117,142 @@ def download_button_zip(data_frame, download_filename, button_text):
 #Done with download button for zip file
 
 
+
+##### Adding Funtions pertaining to Fourth part
+
+
+# Identifies hypomethylated consecutive ID blocks
+def identify_consecutive_blocks_hypo(col_delta_beta, df, hypo_parameter):
+    
+    # hypoparameter shd always be <0 (is typically -0.1)
+    # col_delta_beta holds name of delta beta column
+    # df - The dataframe being used
+    
+    # Turn Delta Beta to np array
+    dif=np.array(df[col_delta_beta].iloc[:])
+    # Create filter to identify hypomethylated IDs
+    in1=np.where(dif<=hypo_parameter)
+    dif[in1[0]]=1
+
+    bf=[]
+    i=-1
+    
+    maxv=np.where(dif==1)[0]
+    # Check if there are any occurrences of 1
+    if len(maxv) > 0:
+        # Retrieve the last index where dif is equal to 1
+        maxv = maxv[-1]
+    else:
+        # Handle the case where there are no occurrences of 1
+        maxv = -1  # or any other appropriate value
+
+    while i<maxv:
+        bn=[]
+        i=i+1
+        if dif[i]==1 and i<=maxv:
+            bn.append(i)
+            chrp=df['CHR'].iloc[i]
+            i=i+1
+            while i<maxv and dif[i]==1 and chrp==df['CHR'].iloc[i]:
+                bn.append(i)
+                i=i+1
+            
+        if i==maxv:
+            bn.append(maxv)
+        
+        if len(bn)>=3:
+            bf.append(bn)
+    
+    return bf
+
+
+# Identifies hypermethylated consecutive ID blocks
+def identify_consecutive_blocks_hyper(col_delta_beta, df, hyper_parameter):
+    
+    # hyperparameter shd always be >0 (is typically 0.1)
+    # col_delta_beta holds name of delta beta column
+    # df - The dataframe being used
+    
+    # Turn Delta Beta to np array
+    dif=np.array(df[col_delta_beta].iloc[:])
+    
+    # Create filter to identify hypomethylated IDs
+    in1=np.where(dif>=hyper_parameter)
+    dif[in1[0]]=1
+
+    bf=[]
+    i=-1
+    maxv=np.where(dif==1)[0]
+    # Check if there are any occurrences of 1
+    if len(maxv) > 0:
+        # Retrieve the last index where dif is equal to 1
+        maxv = maxv[-1]
+    else:
+        # Handle the case where there are no occurrences of 1
+        maxv = -1  # or any other appropriate value
+
+    while i<maxv:
+        bn=[]
+        i=i+1
+        if dif[i]==1 and i<=maxv:
+            bn.append(i)
+            chrp=df['CHR'].iloc[i]
+            i=i+1
+            while i<maxv and dif[i]==1 and chrp==df['CHR'].iloc[i]:
+                bn.append(i)
+                i=i+1
+            
+        if i==maxv:
+            bn.append(maxv)
+        
+        if len(bn)>=3:
+            bf.append(bn)
+    
+    return bf
+
+
+# Function to calculate means of averages, sample values, their diff, p-value and organise them for final df
+def organise_blocks(bf,df,avg_idx,sample_col_name):
+
+    fd=[]
+
+    for t in bf:
+        f=[]
+        
+        # Add Sample
+        cna =sample_col_name.split('.')
+        f.append(cna[0])
+
+        #First blocks chromosome
+        chv_first=df['CHR'].iloc[t[0]]
+        #Last blocks chromosome
+        chv_last =df['CHR'].iloc[t[-1]]
+
+        if chv_first==chv_last:
+            cvff=str(chv_first)+':'+str(int(df['MAPINFO'].iloc[t[0]]))+'-'+str(int(df['MAPINFO'].iloc[t[-1]]))
+        
+        f.append(cvff)
+        f.append(df['MAPINFO'].iloc[t[-1]]-df['MAPINFO'].iloc[t[0]])
+        f.append(len(t))
+        f.append((df['MAPINFO'].iloc[t[-1]]-df['MAPINFO'].iloc[t[0]])/len(t))
+
+        for j in range(5,avg_idx):
+            f.append(df[df.columns[j]].iloc[t[0]])
+        
+        # Mean Controls_average
+        f.append(np.mean(df[df.columns[avg_idx]].iloc[t]))
+        # Mean Sample Beta
+        f.append(np.mean(df[sample_col_name].iloc[t]))
+        # Methylation Diff
+        f.append(np.mean(df[sample_col_name].iloc[t])-np.mean(df[df.columns[avg_idx]].iloc[t]))
+        t_value,p_value=stats.ttest_rel(df[df.columns[avg_idx]].iloc[t],df[sample_col_name].iloc[t])
+        # P-value
+        f.append(p_value)
+        fd.append(f)
+    return fd
+
+
+
 # Set name for Webpage*******************************
 st.set_page_config(
     page_title="Methylation Source File Generator"
@@ -152,6 +291,24 @@ data_files= st.file_uploader("Upload your File here !", type=["csv","excel","xls
 ""
 # Done with taking in data file
 
+
+st.subheader("Parameters List ")
+##### Get hypo and hyper methylation values**************************
+colC,colD =st.columns(2)
+with colC:
+    st.write("Value for degree of hypermethylation selection")
+    st.caption("If you enter 0.1, then only those instances having delta_beta values >=0.1, will be checked for consecutive hypermethylation.")
+with colD:
+    hyper_param=st.number_input("",min_value=0.0,max_value=1.0,value=1e-1,format="%.3f",key='hyper')
+
+colE, colF=st.columns(2)
+with colE:
+    st.write("Value for degree of hypomethylation selection")
+    st.caption("If you enter -0.1, then only those instances having delta_beta values <=-0.1, will be checked for consecutive hypomethylation.")
+with colF:
+    hypo_param=st.number_input("",min_value=-1.0,max_value=0.0,value=-1e-1,format="%.3f",key='hypo')
+
+# Done creating widget for parameter value collection
 
 
 ##### Make sure 450K array Manifest file is included in folder
@@ -244,9 +401,12 @@ if submit and data_files is not None:
 
 
     #### Calculating Delta Beta Values
-
+    
     # Run loader for creating and calculating Delta Beta Values
     with st.spinner('Calculating Delta Beta Values'):
+
+        for i in range(21,mani_data_df.shape[1]):
+            mani_data_df[mani_data_df.columns[i]] = mani_data_df[mani_data_df.columns[i]].apply(pd.to_numeric, downcast='float', errors='coerce')
 
         for col_name in sample_list:
             
@@ -255,17 +415,77 @@ if submit and data_files is not None:
             #Insert Delta Beta Column Right Next to Sample 
             mani_data_df.insert(index_no+1,'Delta_Beta_'+col_name,'')
             #Calculate Delta Beta
-            mani_data_df.loc[:,'Delta_Beta_'+col_name] =mani_data_df.loc[:,col_name]-mani_data_df.loc[:,'Average']
+            mani_data_df.loc[:,'Delta_Beta_'+col_name] =mani_data_df.loc[:,col_name]-mani_data_df.loc[:,mani_data_df.columns[avg_idx]]
 
         # Download button for delta_beta file
         mani_data_df=mani_data_df.fillna("")
+        mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'])
         delta_beta_btn = download_button_zip(mani_data_df,'DeltaBeta.csv',"Download Input Data With Delta Beta File (ZIP)")
         st.markdown(delta_beta_btn, unsafe_allow_html=True)
     
-    status.success('Delta Beta Values Generated')
+    status.info('Delta Beta Values Generated')
 
     #/*********************Third Part Done**********************************************/
-    # Commit to update Streamlit App
+    
+    # The Fourth part deals with some hard core calculations
+
+    # First get hypo and hyperparameter values through form
+    # ------> It is already stored in their respective holders
+
+    # Importing stats is done
+    # Add functions identify_consecutive_blocks_hypo, identify_consecutive_blocks_hyper and organise_blocks
+    # Done (Check top)
+
+    # Run loader to prepare file for next step
+    with st.spinner("Setting Things Ready Before Next Step"):
+        
+        #Initializing Dataframe to store new results
+        col=['Sample','Coordinate','Len','Number of Probes','Ratio',mani_data_df.columns[5],mani_data_df.columns[6],mani_data_df.columns[7],mani_data_df.columns[8],mani_data_df.columns[9],mani_data_df.columns[10],mani_data_df.columns[11],mani_data_df.columns[12],mani_data_df.columns[13],mani_data_df.columns[14],mani_data_df.columns[15],mani_data_df.columns[16],mani_data_df.columns[17],mani_data_df.columns[18],mani_data_df.columns[19],mani_data_df.columns[20],'Mean Controls_Average','Mean Sample Beta Value','Methylation Difference','P-value']
+        Final_df=pd.DataFrame(columns=col)
+
+        # To handle NaN values
+        for i in range(21,mani_data_df.shape[1]):
+            mani_data_df[mani_data_df.columns[i]] = mani_data_df[mani_data_df.columns[i]].apply(pd.to_numeric, downcast='float', errors='coerce')
+
+    # Get Progress bar ready
+    pbar = stqdm("Identifying DMRs",total=len(sample_list))
+
+    for col_name in sample_list:
+        #print(col_name+"\n")
+
+        #First Store Hypomethylated blocks identified 
+        hypo_blocks =identify_consecutive_blocks_hypo('Delta_Beta_'+col_name,mani_data_df,hypo_param)
+        #if len(hypo_blocks)>0:
+        #    print(hypo_blocks)
+
+        #Second Organise the hypoblocks
+        first_block=organise_blocks(hypo_blocks,mani_data_df,21,col_name)
+
+        #Third Store Hypermethylated blocks identified
+        hyper_blocks=identify_consecutive_blocks_hyper('Delta_Beta_'+col_name,mani_data_df,hyper_param)
+        #if len(hyper_blocks)>0:
+        #    print(hypo_blocks)
+
+        # Fourth Organise the Hyperblocks
+        second_block=organise_blocks(hyper_blocks,mani_data_df,21,col_name)
+
+        col_consecutive = first_block + second_block
+        col_df =pd.DataFrame(col_consecutive,columns=col)
+        Final_df =pd.concat([Final_df, col_df], axis=0)
+
+        pbar.update(1)
+
+    with st.spinner("Getting Your File Ready"):
+        # Download button for dmr file
+        Final_df=Final_df.fillna("")
+        dmr_btn = download_button_zip(Final_df,'DMR.csv',"Download DMRs File (ZIP)")
+        st.markdown(dmr_btn, unsafe_allow_html=True)
+
+    status.success('All DMRs Identified')
+
+    
+
+    
 
 
 if submit and (data_files is None):
