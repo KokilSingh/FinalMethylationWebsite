@@ -253,6 +253,150 @@ def organise_blocks(bf,df,avg_idx,sample_col_name):
 
 
 
+
+##### Adding Funtions pertaining to Fourth part
+
+
+# Identifies hypomethylated consecutive ID blocks
+def identify_consecutive_blocks_hypo(col_delta_beta, df, hypo_parameter):
+    
+    # hypoparameter shd always be <0 (is typically -0.1)
+    # col_delta_beta holds name of delta beta column
+    # df - The dataframe being used
+    
+    # Turn Delta Beta to np array
+    dif=np.array(df[col_delta_beta].iloc[:])
+    # Create filter to identify hypomethylated IDs
+    in1=np.where(dif<=hypo_parameter)
+    dif[in1[0]]=1
+
+    bf=[]
+    i=-1
+    
+    maxv=np.where(dif==1)[0]
+    # Check if there are any occurrences of 1
+    if len(maxv) > 0:
+        # Retrieve the last index where dif is equal to 1
+        maxv = maxv[-1]
+    else:
+        # Handle the case where there are no occurrences of 1
+        maxv = -1  # or any other appropriate value
+
+    while i<maxv:
+        bn=[]
+        i=i+1
+        if dif[i]==1 and i<=maxv:
+            bn.append(i)
+            chrp=df['CHR'].iloc[i]
+            i=i+1
+            while i<maxv and dif[i]==1 and chrp==df['CHR'].iloc[i]:
+                bn.append(i)
+                i=i+1
+            
+        if i==maxv:
+            bn.append(maxv)
+        
+        if len(bn)>=3:
+            bf.append(bn)
+    
+    return bf
+
+
+# Identifies hypermethylated consecutive ID blocks
+def identify_consecutive_blocks_hyper(col_delta_beta, df, hyper_parameter):
+    
+    # hyperparameter shd always be >0 (is typically 0.1)
+    # col_delta_beta holds name of delta beta column
+    # df - The dataframe being used
+    
+    # Turn Delta Beta to np array
+    dif=np.array(df[col_delta_beta].iloc[:])
+    
+    # Create filter to identify hypomethylated IDs
+    in1=np.where(dif>=hyper_parameter)
+    dif[in1[0]]=1
+
+    bf=[]
+    i=-1
+    maxv=np.where(dif==1)[0]
+    # Check if there are any occurrences of 1
+    if len(maxv) > 0:
+        # Retrieve the last index where dif is equal to 1
+        maxv = maxv[-1]
+    else:
+        # Handle the case where there are no occurrences of 1
+        maxv = -1  # or any other appropriate value
+
+    while i<maxv:
+        bn=[]
+        i=i+1
+        if dif[i]==1 and i<=maxv:
+            bn.append(i)
+            chrp=df['CHR'].iloc[i]
+            i=i+1
+            while i<maxv and dif[i]==1 and chrp==df['CHR'].iloc[i]:
+                bn.append(i)
+                i=i+1
+            
+        if i==maxv:
+            bn.append(maxv)
+        
+        if len(bn)>=3:
+            bf.append(bn)
+    
+    return bf
+
+
+# Function to calculate means of averages, sample values, their diff, p-value and organise them for final df
+def organise_blocks(bf,df,avg_idx,sample_col_name):
+
+    fd=[]
+
+    for t in bf:
+        f=[]
+        
+        # Add Sample
+        cna =sample_col_name.split('.')
+        f.append(cna[0])
+
+        #First blocks chromosome
+        chv_first=df['CHR'].iloc[t[0]]
+        #Last blocks chromosome
+        chv_last =df['CHR'].iloc[t[-1]]
+
+        if chv_first==chv_last:
+            cvff=str(chv_first)+':'+str(int(df['MAPINFO'].iloc[t[0]]))+'-'+str(int(df['MAPINFO'].iloc[t[-1]]))
+        
+        f.append(cvff)
+        f.append(df['MAPINFO'].iloc[t[-1]]-df['MAPINFO'].iloc[t[0]])
+        f.append(len(t))
+        f.append((df['MAPINFO'].iloc[t[-1]]-df['MAPINFO'].iloc[t[0]])/len(t))
+
+        for j in range(5,avg_idx):
+            f.append(df[df.columns[j]].iloc[t[0]])
+        
+        # Mean Controls_average
+        f.append(np.mean(df[df.columns[avg_idx]].iloc[t]))
+        # Mean Sample Beta
+        f.append(np.mean(df[sample_col_name].iloc[t]))
+        # Methylation Diff
+        f.append(np.mean(df[sample_col_name].iloc[t])-np.mean(df[df.columns[avg_idx]].iloc[t]))
+        t_value,p_value=stats.ttest_rel(df[df.columns[avg_idx]].iloc[t],df[sample_col_name].iloc[t])
+        # P-value
+        f.append(p_value)
+        fd.append(f)
+    return fd
+
+
+
+# Custom Sort for CHR
+def chr_sort_key(value):
+    try:
+        return (float(value), '')
+    except ValueError:
+        return (float('inf'), str(value))
+
+
 # Set name for Webpage*******************************
 st.set_page_config(
     page_title="Methylation Source File Generator"
@@ -342,10 +486,16 @@ if submit and data_files is not None:
         else:
             data_df=pd.read_excel(data_files)
         
+        # Warning label for Missing Avg Values
+        #st.write(f"{data_df.loc[:,data_df.columns[1]].isna() }")
+        if data_df.loc[:,data_df.columns[1]].isna().values.sum()>0 :
+            st.warning("Alert:- Missing Average Values Found !")
+
         data_df=data_df.fillna("")
 
     # Display status: Sample Data File Fetched
     status.info("Methylation Sample Data File Read Successfully")
+    
     
     
 
@@ -364,13 +514,27 @@ if submit and data_files is not None:
 
     # Run loader for Mapping: Avg-> Manifest 
     with st.spinner('Mapping Data File to Manifest File'):
+
         # Map Averages to Manifest File
+        data_df['TargetID'] = data_df['TargetID'].astype("string")
+        for i in range(1,data_df.shape[1]):
+            data_df[data_df.columns[i]] = data_df[data_df.columns[i]].apply(pd.to_numeric, downcast='float', errors='coerce')
         mani_data_df=pd.merge(mani_df,data_df,how='inner',on = 'TargetID')
-        #Sort
-        mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'])
+
+        # Check if certain cgIDs are not recognized by the Manifest File
+        if len(data_df['TargetID']) != len(mani_data_df['TargetID']) :
+            st.warning('Alert:- TargetIDs in Data File not found in Manifest File !')
+            
+            ### Thinks that we need to work on : Handling !series_matrix_end
+
+        #Sort and ntype assignment of CHR and MAPINFO
+        mani_data_df=mani_data_df.sort_values(by=['CHR', 'MAPINFO'], key=lambda x: x.map(chr_sort_key))
+        
         # Download for testing (optional)
         mani_data_btn = download_button_zip(mani_data_df,'ManifestWithInput.csv',"Download Combined Data File (ZIP)")
         st.markdown(mani_data_btn, unsafe_allow_html=True)
+
+        
     
 
         
@@ -399,7 +563,7 @@ if submit and data_files is not None:
     status.info('Done Identifying Columns')
 
 
-
+    
     #### Calculating Delta Beta Values
     
     # Run loader for creating and calculating Delta Beta Values
@@ -486,9 +650,8 @@ if submit and data_files is not None:
     
 
     
+    
 
 
 if submit and (data_files is None):
     status.error("Either one or both of Data File and Average File is not uploaded.")
-
-
