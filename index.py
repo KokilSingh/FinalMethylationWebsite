@@ -583,7 +583,7 @@ if submit and data_files is not None:
 
         # Download button for delta_beta file
         mani_data_df=mani_data_df.fillna("")
-        mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'])
+        mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'], key=lambda x: x.map(chr_sort_key))
         delta_beta_btn = download_button_zip(mani_data_df,'DeltaBeta.csv',"Download Input Data With Delta Beta File (ZIP)")
         st.markdown(delta_beta_btn, unsafe_allow_html=True)
     
