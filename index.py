@@ -455,7 +455,7 @@ with colE:
     st.write("Maximum Ratio value ")
     st.caption("Ratio value attributes to the maximum value (Length of DMR/No. of Probes) that should be used to filter DMRs")
 with colF:
-    r_max =st.number_input("",min_value=0,value=182,key='r_param',disabled=not agree_row)
+    r_max =st.number_input("Label2",min_value=0,value=182,key='r_param',disabled=not agree_row)
 
 
 
