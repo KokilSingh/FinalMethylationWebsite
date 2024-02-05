@@ -1,5 +1,5 @@
 [server]
-maxUploadSize = 750
+maxUploadSize = 500
 maxMessageSize= 1000
 
 [theme]

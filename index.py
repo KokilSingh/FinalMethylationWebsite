@@ -440,19 +440,23 @@ st.subheader("Parameters List ")
 ##### Get hypo and hyper methylation values**************************
 colC,colD =st.columns(2)
 with colC:
-    st.write("Value for degree of hypermethylation selection")
-    st.caption("If you enter 0.1, then only those instances having delta_beta values >=0.1, will be checked for consecutive hypermethylation.")
+    st.write("Degree of hypermethylation selection")
+    st.caption("If you enter 0.1, then only those instances having delta_beta values >=0.1 or <=-0.1, will be checked for consecutive hypermethylation.")
 with colD:
     hyper_param=st.number_input("",min_value=0.0,max_value=1.0,value=1e-1,format="%.3f",key='hyper')
 
-colE, colF=st.columns(2)
-with colE:
-    st.write("Value for degree of hypomethylation selection")
-    st.caption("If you enter -0.1, then only those instances having delta_beta values <=-0.1, will be checked for consecutive hypomethylation.")
-with colF:
-    hypo_param=st.number_input("",min_value=-1.0,max_value=0.0,value=-1e-1,format="%.3f",key='hypo')
 
-# Done creating widget for parameter value collection
+##### Get Maximum Ratio value *****************************************
+""
+agree_row = st.checkbox('**Do you want to filter the DMRs selected by setting a maximum ratio value?**')
+
+colE,colF =st.columns(2)
+with colE:
+    st.write("Maximum Ratio value ")
+    st.caption("Ratio value attributes to the maximum value (Length of DMR/No. of Probes) that should be used to filter DMRs")
+with colF:
+    r_max =st.number_input("",min_value=0,value=182,key='r_param',disabled=not agree_row)
+
 
 
 ##### Make sure 450K array Manifest file is included in folder
@@ -531,8 +535,8 @@ if submit and data_files is not None:
         mani_data_df=mani_data_df.sort_values(by=['CHR', 'MAPINFO'], key=lambda x: x.map(chr_sort_key))
         
         # Download for testing (optional)
-        mani_data_btn = download_button_zip(mani_data_df,'ManifestWithInput.csv',"Download Combined Data File (ZIP)")
-        st.markdown(mani_data_btn, unsafe_allow_html=True)
+        #mani_data_btn = download_button_zip(mani_data_df,'ManifestWithInput.csv',"Download Combined Data File (ZIP)")
+        #st.markdown(mani_data_btn, unsafe_allow_html=True)
 
         
     
@@ -564,7 +568,7 @@ if submit and data_files is not None:
 
 
     
-    #### Calculating Delta Beta Values
+    #### Calculating Delta Beta Values*********************************************************
     
     # Run loader for creating and calculating Delta Beta Values
     with st.spinner('Calculating Delta Beta Values'):
@@ -584,10 +588,12 @@ if submit and data_files is not None:
         # Download button for delta_beta file
         mani_data_df=mani_data_df.fillna("")
         mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'], key=lambda x: x.map(chr_sort_key))
-        delta_beta_btn = download_button_zip(mani_data_df,'DeltaBeta.csv',"Download Input Data With Delta Beta File (ZIP)")
-        st.markdown(delta_beta_btn, unsafe_allow_html=True)
+        #delta_beta_btn = download_button_zip(mani_data_df,'DeltaBeta.csv',"Download Input Data With Delta Beta File (ZIP)")
+        #st.markdown(delta_beta_btn, unsafe_allow_html=True)
     
     status.info('Delta Beta Values Generated')
+
+
 
     #/*********************Third Part Done**********************************************/
     
@@ -612,9 +618,9 @@ if submit and data_files is not None:
             mani_data_df[mani_data_df.columns[i]] = mani_data_df[mani_data_df.columns[i]].apply(pd.to_numeric, downcast='float', errors='coerce')
 
     # Get Progress bar ready
-    pbar = stqdm("Identifying DMRs",total=len(sample_list))
+    #pbar = stqdm("Identifying DMRs",total=len(sample_list))
 
-    for col_name in sample_list:
+    for col_name in stqdm(sample_list, desc="Identifying DMRs"):
         #print(col_name+"\n")
 
         #First Store Hypomethylated blocks identified 
@@ -637,10 +643,22 @@ if submit and data_files is not None:
         col_df =pd.DataFrame(col_consecutive,columns=col)
         Final_df =pd.concat([Final_df, col_df], axis=0)
 
-        pbar.update(1)
+        sleep(0.01)
 
+    
+
+    #*************************Fourth Part*******************************8
+
+    
+    if agree_row:
+        #Select only those DMR with Ratio<= Cutoff
+        with st.spinner('Filtering DMRS'):
+            Final_df =Final_df[Final_df['Ratio']<=r_max]
+
+    
     with st.spinner("Getting Your File Ready"):
         # Download button for dmr file
+        Final_df['Coordinate'] = 'chr'+Final_df['Coordinate']
         Final_df=Final_df.fillna("")
         dmr_btn = download_button_zip(Final_df,'DMR.csv',"Download DMRs File (ZIP)")
         st.markdown(dmr_btn, unsafe_allow_html=True)
@@ -648,10 +666,6 @@ if submit and data_files is not None:
     status.success('All DMRs Identified')
 
     
-
-    
-    
-
 
 if submit and (data_files is None):
     status.error("Either one or both of Data File and Average File is not uploaded.")
