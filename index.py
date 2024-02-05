@@ -12,7 +12,6 @@ from stqdm import stqdm
 #Done importing relevant libraries
 
 
-
 ##### Make function for save download of files without reloading (a streamlit bug)
 def download_button(object_to_download, download_filename, button_text):
     
@@ -444,7 +443,7 @@ with colC:
     st.write("Degree of hypermethylation selection")
     st.caption("If you enter 0.1, then only those instances having delta_beta values >=0.1 or <=-0.1, will be checked for consecutive hypermethylation.")
 with colD:
-    hyper_param=st.number_input("",min_value=0.0,max_value=1.0,value=1e-1,format="%.3f",key='hyper')
+    hyper_param=st.number_input("Label",min_value=0.0,max_value=1.0,value=1e-1,format="%.3f",key='hyper')
 
 
 ##### Get Maximum Ratio value *****************************************
