@@ -445,6 +445,7 @@ with colC:
 with colD:
     hyper_param=st.number_input("Label",min_value=0.0,max_value=1.0,value=1e-1,format="%.3f",key='hyper')
 
+hypo_param = -hyper_param
 
 ##### Get Maximum Ratio value *****************************************
 ""
@@ -635,7 +636,7 @@ if submit and data_files is not None:
         hyper_blocks=identify_consecutive_blocks_hyper('Delta_Beta_'+col_name,mani_data_df,hyper_param)
         #if len(hyper_blocks)>0:
         #    print(hypo_blocks)
-
+        
         # Fourth Organise the Hyperblocks
         second_block=organise_blocks(hyper_blocks,mani_data_df,21,col_name)
 
