@@ -440,7 +440,7 @@ st.subheader("Parameters List ")
 ##### Get hypo and hyper methylation values**************************
 colC,colD =st.columns(2)
 with colC:
-    st.write("Degree of hypermethylation selection")
+    st.write("Degree of Hyper/Hypomethylation selection")
     st.caption("If you enter 0.1, then only those instances having delta_beta values >=0.1 or <=-0.1, will be checked for consecutive hypermethylation.")
 with colD:
     hyper_param=st.number_input("Label",min_value=0.0,max_value=1.0,value=1e-1,format="%.3f",key='hyper')
