@@ -2,6 +2,5 @@ numpy
 pandas
 scipy
 stqdm
-time
 uuid
 streamlit
