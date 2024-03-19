@@ -2,7 +2,6 @@ numpy
 pandas
 scipy
 stqdm
-base64
 re
 time
 uuid
