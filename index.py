@@ -510,7 +510,6 @@ if submit and data_files is not None:
         # Get Manifest file
         mani_df=pd.read_csv("450K Methylation Manifest file.csv",low_memory=False)
         mani_df=mani_df.fillna("")
-        print("Mani columns:",mani_df.columns)
         mani_df['UCSC_REFGENE_NAME'] = mani_df['UCSC_REFGENE_NAME'].astype("string")
 
     # Display status: Manifest Data File Fetched
