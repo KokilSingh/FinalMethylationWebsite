@@ -236,7 +236,7 @@ def organise_blocks(bf,df,avg_idx,sample_col_name):
         f.append(len(t))
         f.append((df['MAPINFO'].iloc[t[-1]]-df['MAPINFO'].iloc[t[0]])/len(t))
 
-        for j in range(5,avg_idx):
+        for j in range(3,avg_idx):
             f.append(df[df.columns[j]].iloc[t[0]])
         
         # Mean Controls_average
@@ -347,46 +347,6 @@ def identify_consecutive_blocks_hyper(col_delta_beta, df, hyper_parameter):
     return bf
 
 
-# Function to calculate means of averages, sample values, their diff, p-value and organise them for final df
-def organise_blocks(bf,df,avg_idx,sample_col_name):
-
-    fd=[]
-
-    for t in bf:
-        f=[]
-        
-        # Add Sample
-        cna =sample_col_name.split('.')
-        f.append(cna[0])
-
-        #First blocks chromosome
-        chv_first=df['CHR'].iloc[t[0]]
-        #Last blocks chromosome
-        chv_last =df['CHR'].iloc[t[-1]]
-
-        if chv_first==chv_last:
-            cvff=str(chv_first)+':'+str(int(df['MAPINFO'].iloc[t[0]]))+'-'+str(int(df['MAPINFO'].iloc[t[-1]]))
-        
-        f.append(cvff)
-        f.append(df['MAPINFO'].iloc[t[-1]]-df['MAPINFO'].iloc[t[0]])
-        f.append(len(t))
-        f.append((df['MAPINFO'].iloc[t[-1]]-df['MAPINFO'].iloc[t[0]])/len(t))
-
-        for j in range(5,avg_idx):
-            f.append(df[df.columns[j]].iloc[t[0]])
-        
-        # Mean Controls_average
-        f.append(np.mean(df[df.columns[avg_idx]].iloc[t]))
-        # Mean Sample Beta
-        f.append(np.mean(df[sample_col_name].iloc[t]))
-        # Methylation Diff
-        f.append(np.mean(df[sample_col_name].iloc[t])-np.mean(df[df.columns[avg_idx]].iloc[t]))
-        t_value,p_value=stats.ttest_rel(df[df.columns[avg_idx]].iloc[t],df[sample_col_name].iloc[t])
-        # P-value
-        f.append(p_value)
-        fd.append(f)
-    return fd
-
 
 
 # Custom Sort for CHR
@@ -412,7 +372,7 @@ sample_tem_df=pd.read_csv("DataFileTemplate.csv")
 
 
 ##### Set Title************************************************
-st.title("Welcome!")
+st.title("Welcome EPIC ARRAY V2!")
 ""
 
 ##### Make upload button for Methylation data File********************
@@ -505,12 +465,15 @@ if submit and data_files is not None:
     
 
     # Run Loader for Manifest File Fetching
-    with st.spinner('Fetching Manifest File'):
+    with st.spinner('Fetching EPIC V2 Manifest File'):
 
         # Get Manifest file
-        mani_df=pd.read_csv("450K Methylation Manifest file.csv",low_memory=False)
+        mani_df=pd.read_csv("EPIC v2 Manifest File.csv",low_memory=False)
         mani_df=mani_df.fillna("")
-        mani_df['UCSC_REFGENE_NAME'] = mani_df['UCSC_REFGENE_NAME'].astype("string")
+        mani_df['UCSC_RefGene_Name'] = mani_df['UCSC_RefGene_Name'].astype("string")
+        mani_df['UCSC_RefGene_Accession'] = mani_df['UCSC_RefGene_Accession'].astype("string")
+        mani_df['UCSC_RefGene_Group'] = mani_df['UCSC_RefGene_Group'].astype("string")
+
 
     # Display status: Manifest Data File Fetched
     status.info("Manifest File Fetched Successfully")
@@ -521,23 +484,51 @@ if submit and data_files is not None:
     with st.spinner('Mapping Data File to Manifest File'):
 
         # Map Averages to Manifest File
-        data_df['TargetID'] = data_df['TargetID'].astype("string")
+        #data_df['TargetID'] = data_df['TargetID'].astype("string")
+        
         for i in range(1,data_df.shape[1]):
             data_df[data_df.columns[i]] = data_df[data_df.columns[i]].apply(pd.to_numeric, downcast='float', errors='coerce')
-        mani_data_df=pd.merge(mani_df,data_df,how='inner',on = 'TargetID')
+        
+        
+        #mani_data_df=pd.merge(mani_df,data_df,how='inner',on = 'TargetID')
+        #Alternate strategy
+        #print(mani_df['TargetID'].dtype)
+        #print(data_df['TargetID'].dtype)
+        mani_df['TargetID'] = mani_df['TargetID'].astype(str)
+        data_df['TargetID'] = data_df['TargetID'].astype(str) 
+        mani_df['TargetID'] = mani_df['TargetID'].str.strip()
+        data_df['TargetID'] = data_df['TargetID'].str.strip()
+
+        #common_ids = set(mani_df['TargetID']).intersection(set(data_df['TargetID']))
+        #print(f"Number of common TargetIDs: {len(common_ids)}")
+        
+        # Print some common TargetIDs
+        #print(list(common_ids)[:10])
+
+
+        mani_df.set_index('TargetID', inplace=True)
+        data_df.set_index('TargetID', inplace=True)
+
+        # Perform the merge
+        mani_data_df = mani_df.join(data_df, how='inner')
+
+        # Reset the index if needed
+        mani_data_df.reset_index(inplace=True)
+        data_df.reset_index(inplace=True)
 
         # Check if certain cgIDs are not recognized by the Manifest File
         if len(data_df['TargetID']) != len(mani_data_df['TargetID']) :
-            st.warning('Alert:- TargetIDs in Data File not found in Manifest File !')
+            diff=len(data_df['TargetID'])-len(mani_data_df['TargetID'])
+            st.warning(f'Alert: {diff} TargetIDs in Data File not found in Manifest File !')
             
             ### Thinks that we need to work on : Handling !series_matrix_end
 
         #Sort and ntype assignment of CHR and MAPINFO
-        mani_data_df=mani_data_df.sort_values(by=['CHR', 'MAPINFO'], key=lambda x: x.map(chr_sort_key))
+        #mani_data_df=mani_data_df.sort_values(by=['CHR', 'MAPINFO'], key=lambda x: x.map(chr_sort_key))
         
         # Download for testing (optional)
-        #mani_data_btn = download_button_zip(mani_data_df,'ManifestWithInput.csv',"Download Combined Data File (ZIP)")
-        #st.markdown(mani_data_btn, unsafe_allow_html=True)
+        mani_data_btn = download_button_zip(mani_data_df,'ManifestWithInput.csv',"Download Combined Data File (ZIP)")
+        st.markdown(mani_data_btn, unsafe_allow_html=True)
 
         
     
@@ -560,7 +551,7 @@ if submit and data_files is not None:
     # Run loader for fetching Average and Sample columns
     with st.spinner('Identifying Columns...'):
         #Get average_column index position
-        avg_idx=mani_data_df.columns.get_loc('STRAND') + 1 #We find strands loci because if there is any diff in the spelling of Average it will cause an issue
+        avg_idx=mani_data_df.columns.get_loc('Strand_CO') + 1 #We find strands loci because if there is any diff in the spelling of Average it will cause an issue
         #Get Sample Names
         sample_list=mani_data_df.columns[avg_idx+1:]
     
@@ -574,7 +565,7 @@ if submit and data_files is not None:
     # Run loader for creating and calculating Delta Beta Values
     with st.spinner('Calculating Delta Beta Values'):
 
-        for i in range(21,mani_data_df.shape[1]):
+        for i in range(17,mani_data_df.shape[1]):
             mani_data_df[mani_data_df.columns[i]] = mani_data_df[mani_data_df.columns[i]].apply(pd.to_numeric, downcast='float', errors='coerce')
 
         for col_name in sample_list:
@@ -589,10 +580,8 @@ if submit and data_files is not None:
         # Download button for delta_beta file
         mani_data_df=mani_data_df.fillna("")
         mani_data_df=mani_data_df.sort_values(by=['CHR','MAPINFO'], key=lambda x: x.map(chr_sort_key))
-        
-        #-----------------Comment out
-        #delta_beta_btn = download_button_zip(mani_data_df,'DeltaBeta.csv',"Download Input Data With Delta Beta File (ZIP)")
-        #st.markdown(delta_beta_btn, unsafe_allow_html=True)
+        delta_beta_btn = download_button_zip(mani_data_df,'DeltaBeta.csv',"Download Input Data With Delta Beta File (ZIP)")
+        st.markdown(delta_beta_btn, unsafe_allow_html=True)
     
     status.info('Delta Beta Values Generated')
 
@@ -613,11 +602,11 @@ if submit and data_files is not None:
     with st.spinner("Setting Things Ready Before Next Step"):
         
         #Initializing Dataframe to store new results
-        col=['Sample','Coordinate','Len','Number of Probes','Ratio',mani_data_df.columns[5],mani_data_df.columns[6],mani_data_df.columns[7],mani_data_df.columns[8],mani_data_df.columns[9],mani_data_df.columns[10],mani_data_df.columns[11],mani_data_df.columns[12],mani_data_df.columns[13],mani_data_df.columns[14],mani_data_df.columns[15],mani_data_df.columns[16],mani_data_df.columns[17],mani_data_df.columns[18],mani_data_df.columns[19],mani_data_df.columns[20],'Mean Controls_Average','Mean Sample Beta Value','Methylation Difference','P-value']
+        col=['Sample','Coordinate','Len','Number of Probes','Ratio',mani_data_df.columns[3],mani_data_df.columns[4],mani_data_df.columns[5],mani_data_df.columns[6],mani_data_df.columns[7],mani_data_df.columns[8],mani_data_df.columns[9],mani_data_df.columns[10],mani_data_df.columns[11],mani_data_df.columns[12],mani_data_df.columns[13],mani_data_df.columns[14],mani_data_df.columns[15],mani_data_df.columns[16],'Mean Controls_Average','Mean Sample Beta Value','Methylation Difference','P-value']
         Final_df=pd.DataFrame(columns=col)
 
         # To handle NaN values
-        for i in range(21,mani_data_df.shape[1]):
+        for i in range(17,mani_data_df.shape[1]):
             mani_data_df[mani_data_df.columns[i]] = mani_data_df[mani_data_df.columns[i]].apply(pd.to_numeric, downcast='float', errors='coerce')
 
     # Get Progress bar ready
@@ -632,7 +621,7 @@ if submit and data_files is not None:
         #    print(hypo_blocks)
 
         #Second Organise the hypoblocks
-        first_block=organise_blocks(hypo_blocks,mani_data_df,21,col_name)
+        first_block=organise_blocks(hypo_blocks,mani_data_df,17,col_name)
 
         #Third Store Hypermethylated blocks identified
         hyper_blocks=identify_consecutive_blocks_hyper('Delta_Beta_'+col_name,mani_data_df,hyper_param)
@@ -640,7 +629,7 @@ if submit and data_files is not None:
         #    print(hypo_blocks)
         
         # Fourth Organise the Hyperblocks
-        second_block=organise_blocks(hyper_blocks,mani_data_df,21,col_name)
+        second_block=organise_blocks(hyper_blocks,mani_data_df,17,col_name)
 
         col_consecutive = first_block + second_block
         col_df =pd.DataFrame(col_consecutive,columns=col)
@@ -669,6 +658,7 @@ if submit and data_files is not None:
     status.success('All DMRs Identified')
 
     
+
 
 if submit and (data_files is None):
     status.error("Either one or both of Data File and Average File is not uploaded.")
